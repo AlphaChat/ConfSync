@@ -1,0 +1,61 @@
+Setting it up on the server side:
+
+ $ mkdir /srv/repo
+ $ cd /srv/repo
+ $ git init --bare
+ $ mkdir -p confsync/checkout/
+
+Clone it and finish configuration on the client side:
+
+ $ git clone ssh://user@machine/srv/repo/ repo
+ $ cd repo
+ $ cp /foo/confsync.cfg ./
+ $ $EDITOR confsync.cfg
+ $ git add .
+ $ git commit -am "Initial commit"
+ $ git push
+
+Back to the server side:
+
+ $ cp /foo/post-update hooks/
+ $ cp /foo/post-receive hooks/
+ $ cp /foo/confsync.pl confsync/
+
+Back to the client side:
+
+ $ mkdir -p $type/{global,$servername}/
+ $ $EDITOR $type/global/foo.conf type/$servername/bar.conf
+ $ git add .
+ $ git commit -am "Some commit message"
+ $ git push
+
+
+
+How it works:
+
+The post-receive hook is executed by git on the server side when you
+push commits to it.
+
+For each type $type in your confsync.cfg, there exists a directory
+named $type in your local clone of the repository.
+
+Inside this directory, you create a directory for each of your server
+names, and a directory called "global" if you wish.
+
+Files in $type/global/ will be synced to all servers of type $type,
+unless a file with the same name exists in $type/$servername/.
+
+When a file in $type/$servername/ is updated, that server will be
+resynced with solely the contents of that directory.
+
+When a file in $type/global/ is updated, all servers of that type
+will be resynced (subject to the exclusion above).
+
+When confsync.cfg is updated, all servers of all types will be
+resynced.
+
+File DELETIONS are NOT propagated in a sync. If you delete any files
+from the repository that have been synced to some servers, you will
+also have to delete them from those servers. This is both a safety
+measure, and enables splitting multi-server configuration off into
+$type/global/.

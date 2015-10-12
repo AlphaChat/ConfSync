@@ -1,0 +1,72 @@
+#!/bin/sh
+
+diebconf()
+{
+	echo "" >&2
+	echo "  One or more files ConfSync needs to run are not present" >&2
+	echo "  This must be fixed before ConfSync can continue" >&2
+	echo "" >&2
+	exit 1
+}
+
+diewmsg()
+{
+	echo "" >&2
+	echo "  ConfSync did not exit correctly" >&2
+	echo "  Files changed will be included in the next sync" >&2
+	echo "" >&2
+	exit 1
+}
+
+HASH_DIGITS="12"
+
+GIT_WORK_TREE="confsync/checkout/"
+LASTHASH_FILE="confsync/lasthash.txt"
+CONFSYNC_FILE="confsync/confsync.pl"
+
+[ -d "${GIT_WORK_TREE}" ] || diebconf
+[ -f "${CONFSYNC_FILE}" ] || diebconf
+
+export GIT_WORK_TREE
+
+read OLDHASH NEWHASH REF
+
+if [ -r "${LASTHASH_FILE}" ] ; then
+	OLDHASH="$(cat ${LASTHASH_FILE})"
+fi
+
+OLDHASH="$(expr substr ${OLDHASH} 1 ${HASH_DIGITS})"
+NEWHASH="$(expr substr ${NEWHASH} 1 ${HASH_DIGITS})"
+
+echo ""
+echo " Launching ConfSync for ${OLDHASH}..${NEWHASH}"
+echo ""
+git log -n1 --abbrev="${HASH_DIGITS}" --pretty="format: [%h] * %s {%an}" \
+  "${OLDHASH}" | cat
+echo ""
+git log --reverse --abbrev="${HASH_DIGITS}" \
+  --pretty="format: [%h] + %s {%an}" "${OLDHASH}..${NEWHASH}" | cat
+echo ""
+echo ""
+git diff --stat "${OLDHASH}..${NEWHASH}" </dev/null | cat
+echo ""
+
+echo " ---"
+echo ""
+
+git checkout -f "${NEWHASH}" </dev/null >/dev/null 2>&1
+if [ "x$?" != "x0" ] ; then
+	echo "" >&2
+	echo "  Git checkout failed - is the repository broken?" >&2
+	echo "  This must be fixed before ConfSync can continue" >&2
+	diewmsg
+fi
+
+chmod -R og-rwx "${GIT_WORK_TREE}" </dev/null >/dev/null 2>&1
+git diff --stat --name-only "${OLDHASH}..${NEWHASH}" \
+  </dev/null 2>/dev/null | perl "${CONFSYNC_FILE}"
+if [ "x$?" != "x0" ] ; then
+	diewmsg
+fi
+
+echo "${NEWHASH}" >"${LASTHASH_FILE}"

@@ -17,7 +17,7 @@ sub BEGIN
 
 	unless (exists $ENV{'GIT_WORK_TREE'})
 	{
-		printf "\n Error: GIT_WORK_TREE environment variable missing!\n";
+		printf "\n Error: The GIT_WORK_TREE environment variable is missing!\n";
 		exit 1;
 	}
 	unless (defined $ENV{'GIT_WORK_TREE'} && -d $ENV{'GIT_WORK_TREE'})
@@ -59,15 +59,15 @@ sub in_array
 # Determine if a server is disabled
 sub server_is_disabled
 {
-	my ($name) = @_;
-	return (exists $servers->{$name}->{'disabled'});
+	my $name = shift;
+	return exists $servers->{$name}->{'disabled'};
 }
 
 # Determine if a server exists
 sub server_exists
 {
-	my ($name) = @_;
-	return (exists $servers->{$name});
+	my $name = shift;
+	return exists $servers->{$name};
 }
 
 # Determine if a server is a type
@@ -81,7 +81,7 @@ sub server_is_type
 sub get_configured_types
 {
 	my @types = ();
-	foreach my $server (values %{$servers})
+	foreach my $server (sort values %{$servers})
 	{
 		next if (in_array $server->{'type'}, @types);
 		push @types, $server->{'type'};
@@ -94,7 +94,7 @@ sub get_servers_for_type
 {
 	my ($type) = @_;
 	my @servers = ();
-	foreach my $name (keys %{$servers})
+	foreach my $name (sort keys %{$servers})
 	{
 		next unless ($servers->{$name}->{'type'} eq $type);
 		push @servers, $name;
@@ -131,8 +131,8 @@ sub add_server_sync
 	$sync->{$type} = +{} unless (exists $sync->{$type});
 	$sync->{$type}->{$name} = +{} unless (exists $sync->{$type}->{$name});
 
-	$sync->{$type}->{$name}->{'global'} = 1 if ($which_changed == 0 || $which_changed == 2);
-	$sync->{$type}->{$name}->{'local'} = 1 if ($which_changed == 1 || $which_changed == 2);
+	$sync->{$type}->{$name}->{'global'} = 1 unless ($which_changed == 1);
+	$sync->{$type}->{$name}->{'local'} = 1 unless ($which_changed == 0);
 }
 
 # Determine what servers need to be synced, given a list of modified files
@@ -146,13 +146,11 @@ sub server_process_filepath
 		{
 			unless (server_exists $name)
 			{
-
 				printf "   Modified: %s (belongs to an unknown server - skipping)\n", $file;
 				return;
 			}
 			unless (server_is_type $name, $type)
 			{
-
 				printf "   Modified: %s (server %s is not of type %s - skipping)\n", $file, $name, $type;
 				return;
 			}
@@ -164,21 +162,20 @@ sub server_process_filepath
 		{
 			foreach $name (get_servers_for_type $type)
 			{
-				unless (-e sprintf('%s/%s/%s', $type, $name, $path))
-				{
-					printf "   Modified: %s/%s/%s (global)\n", $type, $name, $path;
-					add_server_sync $type, $name, 0;
-				}
-				else
+				if (-e sprintf('%s/%s/%s', $type, $name, $path))
 				{
 					printf "   Modified: %s/%s/%s (global) -- skipping due to local\n", $type, $name, $path;
+					return;
 				}
+
+				printf "   Modified: %s/%s/%s (global)\n", $type, $name, $path;
+				add_server_sync $type, $name, 0;
 			}
 		}
 	}
 	else
 	{
-		printf "     Modified: %s (I do not know how to handle this) -- skipping\n", $file;
+		printf "     Modified: %s -- skipping (cannot handle)\n", $file;
 	}
 }
 
@@ -282,11 +279,10 @@ $defaults = $config->{'defaults'};
 
 foreach my $server (keys %{$servers})
 {
-	# These have to be defined on a per-server basis
-	foreach my $val (qw/type/)
+	# This has to be defined on a per-server basis
+	unless (exists $servers->{$server}->{'type'})
 	{
-		next if (exists $servers->{$server}->{$val});
-		printf "Error: Server '%s' is missing required config option '%s'\n", $server, $val;
+		printf "Error: Server '%s' is missing required config option 'type'\n", $server;
 		exit 1;
 	}
 
@@ -300,7 +296,7 @@ foreach my $server (keys %{$servers})
 	# These can be defined on a per-server basis, or provided by global or type defaults
 	foreach my $val (qw/user confdir/)
 	{
-		next if (get_value_for_key($server, $val));
+		next if (get_value_for_key $server, $val);
 		printf "Error: Server '%s' is missing required config option '%s'\n", $server, $val;
 		exit 1;
 	}
@@ -312,7 +308,7 @@ printf "done\n";
 my @files = +();
 while (my $file = <STDIN>)
 {
-	$file =~ s/^\s+|\s+$//g;
+	$file =~ s/\s$//g;
 
 	push @files, $file;
 
@@ -333,6 +329,7 @@ while (my $file = <STDIN>)
 unless ($resyncing_all)
 {
 	printf "\n";
+
 	foreach my $file (@files)
 	{
 		server_process_filepath $file;
@@ -347,18 +344,19 @@ unless (scalar keys %{$sync})
 }
 
 # Now we know which servers need syncing and whether they only need local or global files or both updated
-foreach my $type (sort(keys %{$sync}))
+foreach my $type (sort keys %{$sync})
 {
-	foreach my $name (sort(keys %{$sync->{$type}}))
+	foreach my $name (sort keys %{$sync->{$type}})
 	{
 		next if (server_is_disabled $name);
 
-		printf "\n";
-
 		my $sourcedir = '';
+
+		printf "\n";
 		printf "   Beginning sync for %s (%s) ...\n", $name, $type;
 
 		$command_errors_saved = $command_errors;
+
 		if (exists $sync->{$type}->{$name}->{'global'})
 		{
 			$sourcedir = sprintf('%s/global/', $type);
@@ -369,6 +367,7 @@ foreach my $type (sort(keys %{$sync}))
 			$sourcedir = sprintf('%s/%s/', $type, $name);
 			do_rsync($name, $sourcedir) if (-d $sourcedir);
 		}
+
 		if ($command_errors == $command_errors_saved)
 		{
 			printf "   File synchronisation successful\n";
@@ -377,22 +376,22 @@ foreach my $type (sort(keys %{$sync}))
 }
 
 # Now execute any post-synchronisation commands
-foreach my $type (sort(keys %{$sync}))
+foreach my $type (sort keys %{$sync})
 {
-	foreach my $name (sort(keys %{$sync->{$type}}))
+	foreach my $name (sort keys %{$sync->{$type}})
 	{
 		next if (server_is_disabled $name);
 
-		my $postsync_cmds = get_value_for_key($name, 'postsync_cmds') // next;
+		my $postsync_cmds = get_value_for_key($name, 'postsync_cmds') or next;
+
+		next unless (ref $postsync_cmds eq 'ARRAY');
 
 		printf "\n";
 		printf "   Executing post-synchronisation commands for %s (%s) ...\n", $name, $type;
 
 		$command_errors_saved = $command_errors;
-		do_commands($name, values %{$postsync_cmds}) if ref $postsync_cmds eq 'HASH';
-		do_commands($name, @{$postsync_cmds}) if ref $postsync_cmds eq 'ARRAY';
-		do_commands($name, ${$postsync_cmds}) if ref $postsync_cmds eq 'SCALAR';
-		do_commands($name, $postsync_cmds) unless ref $postsync_cmds;
+
+		do_commands($name, @{$postsync_cmds});
 
 		if ($command_errors == $command_errors_saved)
 		{

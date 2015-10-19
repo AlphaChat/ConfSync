@@ -319,7 +319,7 @@ while (my $file = <STDIN>)
 	if ($file eq $config_file)
 	{
 		$resyncing_all = 1;
-		printf "   Configuration file changed -- resyncing all servers\n\n";
+		printf "   Configuration file changed -- resyncing all enabled servers\n\n";
 		foreach my $type (get_configured_types())
 		{
 			foreach my $server (get_servers_for_type $type)
@@ -351,11 +351,7 @@ foreach my $type (sort(keys %{$sync}))
 {
 	foreach my $name (sort(keys %{$sync->{$type}}))
 	{
-		if (server_is_disabled $name)
-		{
-			printf "   Skipping server %s (%s) -- disabled\n", $name, $type;
-			next;
-		}
+		next if (server_is_disabled $name);
 
 		printf "\n";
 

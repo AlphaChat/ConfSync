@@ -372,6 +372,10 @@ foreach my $type (sort keys %{$sync})
 		{
 			printf "   File synchronisation successful\n";
 		}
+		else
+		{
+			printf "   File synchronisation failed\n";
+		}
 	}
 }
 
@@ -397,6 +401,10 @@ foreach my $type (sort keys %{$sync})
 		{
 			printf "   Post-synchronisation commands successful\n";
 		}
+		else
+		{
+			printf "   Post-synchronisation commands failed\n";
+		}
 	}
 }
 
@@ -407,4 +415,5 @@ if ($command_errors)
 	exit 1;
 }
 
+printf "\n\n   All actions completed successfully\n";
 exit 0;

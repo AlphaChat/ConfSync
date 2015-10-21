@@ -3,8 +3,8 @@
 diebconf()
 {
 	echo "" >&2
-	echo "  One or more files ConfSync needs to run are not present" >&2
-	echo "  This must be fixed before ConfSync can continue" >&2
+	echo " One or more files ConfSync needs to run are not present" >&2
+	echo " This must be fixed before ConfSync can continue" >&2
 	echo "" >&2
 	exit 1
 }
@@ -12,8 +12,8 @@ diebconf()
 diewmsg()
 {
 	echo "" >&2
-	echo "  ConfSync did not exit correctly" >&2
-	echo "  Files changed will be included in the next sync" >&2
+	echo " ConfSync did not exit correctly" >&2
+	echo " Files changed will be included in the next sync" >&2
 	echo "" >&2
 	exit 1
 }
@@ -57,8 +57,8 @@ echo ""
 git checkout -f "${NEWHASH}" </dev/null >/dev/null 2>&1
 if [ "x$?" != "x0" ] ; then
 	echo "" >&2
-	echo "  Git checkout failed - is the repository broken?" >&2
-	echo "  This must be fixed before ConfSync can continue" >&2
+	echo " Git checkout failed - is the repository broken?" >&2
+	echo " This must be fixed before ConfSync can continue" >&2
 	diewmsg
 fi
 

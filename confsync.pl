@@ -140,7 +140,7 @@ sub server_process_filepath
 {
 	my ($file) = @_;
 
-	if (my ($type, $name, $path) = ($file =~ m/(.+)\/(.+)\/(.+)/))
+	if (my ($type, $name, $path) = ($file =~ m/^(.+?)\/(.+?)\/(.+)/))
 	{
 		unless ($name eq 'global')
 		{
